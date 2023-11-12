@@ -5,10 +5,13 @@ export default function Home() {
   return (
     <>
       <section className="prose dark:prose-invert">
-        <h1>Ignas Pangonis</h1>
+        <h1>
+          Hey 👋
+          <br /> I&apos;m <span className="text-red-400 dark:text-violet-800">Ignas Pangonis</span>
+        </h1>
         <p>
-          I&apos;m a software engineer and a writer. I write about software, technology, and the
-          future.
+          I&apos;m a software engineer at Vinted. I write about what I learned while building
+          software, organising work and working with people.
         </p>
       </section>
       <section className="prose dark:prose-invert">
