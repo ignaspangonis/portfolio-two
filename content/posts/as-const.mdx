@@ -1,0 +1,94 @@
+---
+title: ‘as const’ in TypeScript
+description: What can the const assertion be used for?
+date: "2023-01-02"
+---
+
+If you are familiar with [type assertions](https://www.tutorialsteacher.com/typescript/type-assertion), you’ll know that `as` keyword allows you to set the type of a value to the one specified after the keyword.
+Nevertheless, if you are seeing `as const` for the first time, you might ask: _“Why is_ `_const_` _being treated as a type here?”_ I know I did.
+
+The thing is, it is not being treated as a type. The `const` assertion **tells the compiler to infer the narrowest / most specific type it can for an expression**.
+If you don’t use it, the compiler will infer the default type, which will possibly result in a wider or more general one.
+
+Let’s see some examples of usages to better understand it.
+
+## 1. Arrays
+
+Let’s say you are building an app which has three types of users — _admin_, _moderator_ and a _regular user_.
+
+We could use a [TypeScript](https://www.typescriptlang.org/docs/handbook/enums.html) [enum](https://www.typescriptlang.org/docs/handbook/enums.html) to store these types, but for the sake of this example, let’s store these types as strings in an array:
+
+Problematic
+
+The **problem** with this is that we can **modify** this array anywhere — nothing stops us from adding/removing elements from the array, because its type is `string[]`. To solve this, let’s add `as const` to the end of the expression:
+
+Good!
+
+Now, this line creates a fixed tuple of specific values. To illustrate this, let’s take a look at its type:
+
+```
+readonly ["admin", "regular", "moderator"]
+```
+
+Here, TypeScript tells us that we can only **read** from this array. If we try to `.push()` something into it, it will complain:
+
+```
+Property ‘push’ does not exist on type ‘readonly [“admin”, “regular”, “moderator”]’.
+```
+
+Great! Now, we can map through the array easier than if we had used `enum`:
+
+```
+USER_ROLES.map(role => ...)
+```
+
+## 2. Objects
+
+Consider another example — you need a page where, depending on a particular breakpoint, different logic can be executed.
+
+We can store the breakpoint values as arrays in an object and put `as const` at the end:
+
+Good!
+
+Now, the type of this object is:
+
+```
+{
+    readonly phones: readonly [0, 720];
+    readonly tablets: readonly [721, 959];
+    readonly desktops: readonly [960, 1199];
+}
+```
+
+The `readonly` modifier is **recursively** applied to **all** properties (incl. nested ones, but we don’t have such here) and arrays. Without `as const`, it would have a more generic type, which would let us manipulate the number arrays:
+
+```
+{
+ phones: number[];
+ tablets: number[];
+ desktops: number[];
+}
+```
+
+## 3. Primitives
+
+Lastly, we can have a string:
+
+If we inspect its type…
+
+```
+const emptyString: ""
+```
+
+…we can see it the type is **identical** to the specific value we gave it.
+This is useful in situations where we need the type of a primitive to be as narrow as possible. If you are using the latest TypeScript version, this functionality will come by default (you won’t need `as const` for this).
+
+## Note
+
+`const` assertion guarantees us that TypeScript will give a _compile time_ error if we try to mutate the object. If you want to make sure that no consumer could modify the object properties at _runtime_, `Object.freeze` is the way to do it.
+
+## Summary
+
+1.  `as const` makes the compiler infer the **narrowest** type possible.
+2.  It recursively applies `readonly` to all properties in the **object** and to every **array**.
+3.  Types of the **primitives** become identical to the values themselves.

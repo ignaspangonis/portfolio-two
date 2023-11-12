@@ -1,0 +1,285 @@
+---
+title: "Redis: Introduction, Caching and Transactions"
+description: Why is Redis so popular?
+date: "2023-01-08"
+---
+
+What is **Redis**?
+
+Redis is an open source, **in-memory data store**, famous for being extremely fast, because it stores things in-memory (i.e. in RAM), as opposed to a disk (for example, SSD).
+
+Originally Redis was used as a **key-value database**, but now it offers [many more features](https://redis.io/docs/modules/). In this article, I’ll only discuss Redis as a key-value database, which it is most often used as.
+
+This article assumes you know a bit about relational databases and the client-server model. My aim is to help explain why and how you can use Redis in your applications.
+
+## Key-Value
+
+What is a **key-value database**?
+
+Basically, it’s a collection of **_(key, value)_** _pairs_. This data structure is more commonly known today as a _dictionary_ or a _hash table._
+
+In other words, it’s a structure, where you have many pairs, each consisting of:
+
+* a **_key_** — the identifier of a value;
+* a **_value_** — the actual thing that we want to store.
+
+Source: [Fireship.io](https://www.youtube.com/watch?v=G1rOthIU-uo&ab_channel=Fireship)
+
+Let’s say we open Redis in terminal (i.e. [Redis CLI](https://redis.io/docs/manual/cli/)):
+
+```
+>
+```
+
+Now let’s store the value `1` by using the`SET` command and giving a key name — for example — `x`:
+
+```
+> SET x 1
+OK
+```
+
+We have `x=1` stored! Let’s get the value with `GET` command:
+
+```
+> GET x
+“1”
+```
+
+And delete it:
+
+```
+> DEL x
+(integer) 1 // **_key is deleted_**
+```
+
+In fact, you can store [many different data structures](https://redis.io/docs/data-types/) as the _value_:  strings, numbers, hashes, JSON documents and so on.
+
+Some data structures have specific commands, but they are quite similar:
+
+*   [Hashes](https://redis.io/docs/data-types/hashes/): `HGET`, `HSET`…
+*   [JSON](https://redis.io/docs/stack/json/): `JSON.GET`, `JSON.SET`…
+
+Extremely simple, right? You might be wondering — why bother with such a simple database? Well, its power lies in the problem it solves — **caching**.
+
+## What is Caching?
+
+**Caching** is the process of storing some data in a **cache.**
+
+**Cache** is a high-speed data storage which stores some data so that future requests for that data are served up faster than by accessing the data’s primary storage location.
+
+## Why use Caching?
+
+### The problem
+
+Imagine a guy who visits Elon Musk’s Twitter page. Client requests data from the server, which queries the database.
+
+Here’s a basic way of how it works:
+
+Basic client-server request flow
+
+However, there is a problem — Elon Musk is very popular, so there are millions of requests per minute to fetch that page. With the above solution, the requests would take a long time and the database would be overloaded. Also, it would cost a lot of money. This is because the request:
+
+*   calls a database;
+*   requires costly SQL operations (like JOIN), which require a lot of computing;
+*   gets data from a disk, which is slow to read from.
+
+### The solution
+
+Instead, we can use Redis database and store Elon’s page data in some key, like `page:elon-musk`. Now, we don’t need much computing to get the data. What’s more, this data will be stored in-memory, so will be served way faster! That means we are using Redis as a cache:
+
+TODO: Request served from Redis cache
+
+Notice the key format — `page:elon-musk`. I used two values to create a **composite key**. This means we can basically emulate a relational database, where `page` would be a table name, and `elon-musk` — a primary key value:
+
+TODO: Relational database analog
+
+But what if, for example, Elon Musk tweets a new post or changes his description? We can’t keep the same value in Redis forever! We need to somehow _invalidate the cache_.
+
+### Cache invalidation
+
+**Cache invalidation** means declaring that a **cached value is no longer valid**. There are several cache invalidation strategies that we can implement. For example, in our program we can **delete** the key in two ways:
+
+1.  Delete `page:elon-musk` key on-demand (i.e. when Elon makes a change), or
+2.  If we don’t care about the data being always up-to-date with the changes (like in a personal blog), we can simply set an expiration time for the key. Thus, it will be deleted automatically after some time. For that, we can use `[EXPIRE](https://redis.io/commands/expire/)`:
+
+```
+> EXPIRE page:elon-musk 60
+OK // **_Elon's page data will expire in 60 seconds_**
+```
+
+Finally, when a user requests Elon’s page (which is now invalidated), Redis will give us an empty value. To handle this, our program can instruct to get the new updated value from the primary database and put it in Redis again. By accessing the primary database, we didn’t use Redis, but only for a moment, which is insignificant.
+
+### Persistance
+
+Behind the scenes, Redis copies data from RAM to a more durable storage (like SSD) from time to time, so it is **persisted** even when, for example, the server is down. Read more [here](https://redis.io/docs/manual/persistence/).
+
+Redis copies data from RAM to the disk
+
+### Other use cases
+
+Apart from caching, Redis has other use cases, for example:
+
+* [Message queue](https://redis.com/solutions/use-cases/messaging/)
+* [Session management](https://redis.com/solutions/use-cases/session-management/)
+* [Real-time analytics](https://redis.com/docs/real-time-analytics-redis/)
+
+## Transactions in Redis
+
+[**Transactions**](https://redis.io/docs/manual/transactions/) are important for any database that wants to keep its data consistent. For example, they guarantee that a set of operations will be executed **without other operations interfering**. Luckily, Redis also gives us the tools to implement transactions, although they are not [**ACID**](https://www.databricks.com/glossary/acid-transactions) by default. However, I will show you how to achieve some of the ACID transaction properties.
+
+There are two main commands for executing transactions:
+
+* `MULTI` marks the **start** of a transaction block. All commands after it are queued for execution;
+* `EXEC` **executes** the transaction block.
+
+Let me present 3 examples to demonstrate using transactions: incorrect, correct and optimised.
+
+In these examples, I’ll use an imaginary JavaScript library that has a`send` function for sending commands to Redis, like `send('SET x 2')` or `send('SET x', 2)`. I’ll also use [RedisJSON](https://redis.io/docs/stack/json/) module to enable JSON operations (`JSON.GET`, `JSON.SET`, etc.).
+
+### The incorrect example
+
+Suppose Bill Gates wants to **send 10$** to Elon Musk’s wallet. Their wallets are stored on Redis and they have an `amount` property. Let’s try writing this scenario simply:
+
+1. **get** the wallet amount from Redis
+2. **calculate** it in JavaScript
+3. and finally, **update** it in Redis
+
+Incorrect example
+
+But what if during the calculation of wallet amounts in JavaScript, someone else transfers 100$ to Elon Musk in Redis? Remember, `EXEC` hasn’t been run, so the transaction execution also hasn’t begun yet! By the time we `EXEC`, would overwrite the data (`JSON.SET`) with our value (20$) and lose his 100$!
+
+In other words, this transaction is not isolated. **Isolation** means **no two transactions mingle or interfere with each other**. How can we solve this?
+
+### The correct example
+
+In Redis, we can use [**_optimistic concurrency control_**](https://www.geeksforgeeks.org/difference-between-pessimistic-approach-and-optimistic-approach-in-dbms/) (a.k.a. _optimistic locking_) to achieve isolation. This means the transaction doesn’t lock the values it is using for itself. If the values are modified by other operations — the transaction will be cancelled, because the transaction’s operations are working with outdated data.
+
+To put this isolation strategy in action, we will use `WATCH`, which instructs Redis to:
+
+*   “watch” the key, and
+*   automatically **cancel the transaction** if the key is modified by some unrelated operation since `WATCH` was called.
+
+`WATCH` usage is very simple:
+
+```
+WATCH wallet:elon
+```
+
+Let’s apply it in our code:
+
+Correct example
+
+Also, we don’t need to manually`UNWATCH` after the transaction ends — `EXEC` and `DISCARD` do that for us automatically.
+
+However, there is a catch. `**WATCH**` **increases the chance that our transaction will be cancelled**. The more keys we `WATCH`, the higher the chance**.** In a system where a lot of requests update the same data (like social media), this chance might be considerable, so we want to avoid cancellation as much as possible. If 10 different transactions try to update the same key, 9 of them will be cancelled, and we’ll have to retry, but then 8 them will fail the second time, and so on. Big waste!
+
+OK, so we should use `WATCH` sparingly. Can we avoid any `WATCH` operations in this code? The answer is yes!
+
+### The optimised example
+
+We are validating whether Bill’s wallet has enough funds, because we want to take money from it. Meanwhile, Elon just needs his wallet amount to increase without any validation.
+
+Redis gives us `[JSON.NUMINCRBY](https://redis.io/commands/json.numincrby/)` for increasing (or decreasing, if the provided value is negative) a JSON value directly:
+
+```
+send('JSON.NUMINCRBY wallet:elon $.amount 10')
+```
+
+We can use it instead of all these commands:
+
+* `JSON.GET wallet:elon $.amount`
+* `elonAmount += 10`
+* `JSON.SET wallet:elon $.amount`
+
+Can we remove `WATCH wallet:elon` then? Let’s see. We are using a single `[JSON.NUMINCRBY](https://redis.io/commands/json.numincrby/)` operation that executes during a transaction. Redis is [single-threaded](https://www.tutorialspoint.com/single-threaded-and-multi-threaded-processes), so while one operation (or transaction) is executing, no other ones will. So there’s no risk that other operations will interfere. Thus, we can remove `WATCH wallet:elon`.
+
+> All the commands in a transaction are serialized and executed sequentially. A request sent by another client will never be served in the middle of the execution of a Redis Transaction. This guarantees that the commands are executed as a single isolated operation. (source: [redis.io](https://redis.io/docs/interact/transactions/))
+
+Here’s how we can apply `[JSON.NUMINCRBY](https://redis.io/commands/json.numincrby/)` and remove redundant code:
+
+TODO: Optimised example
+
+Great! Now we have an isolated transaction with only one `WATCH` operation. Hopefully, this gave you a better idea about how to implement transactions in Redis efficiently. In summary:
+
+* When you want to read values from Redis, validate/modify them and then write them to Redis, **use** **transactions** to avoid writing outdated data. **Use** `**WATCH**` for the values retrieved before the transaction began (i. e. before `EXEC`).
+* If you don’t need to validate data or perform algorithms (that Redis doesn’t have) with it, **try updating data directly in a single operation or transaction**, so unnecessary`WATCH` can be avoided.
+
+## Few more Redis Commands
+
+Here are few more commands so you can get a better idea about Redis.
+
+**TTL (Total Time Left for a key that has a timeout)**
+
+```
+> TTL x
+(integer) 10 // **_10 seconds left to expire_**
+```
+
+**PERSIST (Remove the timeout from key)**
+
+```
+> PERSIST x
+(integer) 1 **_// key won't expire_**
+```
+
+**RENAME (Rename the current existing key)**
+
+```
+> RENAME x y
+OK // **_renamed the key 'x' as 'y'_**
+```
+
+**FLUSHALL (Delete all keys saved so far)**
+
+```
+> flushall
+OK // **_all keys are deleted_**
+```
+
+## Summary
+
+So why should we use Redis database?
+
+1.  It is a very **performant** and inexpensive way to store your data;
+2.  Easy to use;
+3.  It is **supported** in most of the languages (see [here](https://redis.io/docs/libraries/));
+4.  Redis is **open-source**;
+5.  Has [a lot of modules](https://redis.io/docs/modules/) for different use cases, which I didn’t go into detail about in this post;
+6.  Supports **transactions**.
+
+I hope you learned something new in this article!
+
+Feel free to connect with me on [LinkedIn](https://www.linkedin.com/in/ignas-pangonis/), [GitHub](https://github.com/ignaspangonis).
+
+## References
+
+[
+
+Documentation
+-------------
+
+### Welcome to the Redis documentation. Introduction to Redis Learn about the Redis open source project Getting started…
+
+redis.io
+
+](https://redis.io/docs/?source=post_page-----aa32d385aa2b--------------------------------)[
+
+Optimistic and pessimistic record locking
+-----------------------------------------
+
+### Overview of optimistic and pessimistic locking implementations in Rational ClearQuest.
+
+www.ibm.com
+
+](https://www.ibm.com/docs/en/rational-clearquest/7.1.0?topic=clearquest-optimistic-pessimistic-record-locking&source=post_page-----aa32d385aa2b--------------------------------)[
+
+Redis Cache: In-Memory Caching Solutions | Redis Enterprise
+-----------------------------------------------------------
+
+### A basic caching layer meets the minimum requirements of temporarily storing data so that repeated database requests can…
+
+redis.com
+
+](https://redis.com/solutions/use-cases/caching/?source=post_page-----aa32d385aa2b--------------------------------)
+
+Fireship.io
