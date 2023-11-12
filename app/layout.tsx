@@ -33,7 +33,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
                 </nav>
               </div>
             </header>
-            <main>{children}</main>
+            <main className="pt-8">{children}</main>
           </div>
           <Analytics />
         </ThemeProvider>
