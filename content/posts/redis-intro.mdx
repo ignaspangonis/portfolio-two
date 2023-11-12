@@ -100,7 +100,7 @@ But what if, for example, Elon Musk tweets a new post or changes his description
 **Cache invalidation** means declaring that a **cached value is no longer valid**. There are several cache invalidation strategies that we can implement. For example, in our program we can **delete** the key in two ways:
 
 1.  Delete `page:elon-musk` key on-demand (i.e. when Elon makes a change), or
-2.  If we don’t care about the data being always up-to-date with the changes (like in a personal blog), we can simply set an expiration time for the key. Thus, it will be deleted automatically after some time. For that, we can use `[EXPIRE](https://redis.io/commands/expire/)`:
+2.  If we don’t care about the data being always up-to-date with the changes (like in a personal blog), we can simply set an expiration time for the key. Thus, it will be deleted automatically after some time. For that, we can use [EXPIRE](https://redis.io/commands/expire/):
 
 ```
 > EXPIRE page:elon-musk 60
@@ -179,7 +179,7 @@ OK, so we should use `WATCH` sparingly. Can we avoid any `WATCH` operations in t
 
 We are validating whether Bill’s wallet has enough funds, because we want to take money from it. Meanwhile, Elon just needs his wallet amount to increase without any validation.
 
-Redis gives us `[JSON.NUMINCRBY](https://redis.io/commands/json.numincrby/)` for increasing (or decreasing, if the provided value is negative) a JSON value directly:
+Redis gives us [JSON.NUMINCRBY](https://redis.io/commands/json.numincrby/) for increasing (or decreasing, if the provided value is negative) a JSON value directly:
 
 ```
 send('JSON.NUMINCRBY wallet:elon $.amount 10')
@@ -191,11 +191,11 @@ We can use it instead of all these commands:
 * `elonAmount += 10`
 * `JSON.SET wallet:elon $.amount`
 
-Can we remove `WATCH wallet:elon` then? Let’s see. We are using a single `[JSON.NUMINCRBY](https://redis.io/commands/json.numincrby/)` operation that executes during a transaction. Redis is [single-threaded](https://www.tutorialspoint.com/single-threaded-and-multi-threaded-processes), so while one operation (or transaction) is executing, no other ones will. So there’s no risk that other operations will interfere. Thus, we can remove `WATCH wallet:elon`.
+Can we remove `WATCH wallet:elon` then? Let’s see. We are using a single [JSON.NUMINCRBY](https://redis.io/commands/json.numincrby/) operation that executes during a transaction. Redis is [single-threaded](https://www.tutorialspoint.com/single-threaded-and-multi-threaded-processes), so while one operation (or transaction) is executing, no other ones will. So there’s no risk that other operations will interfere. Thus, we can remove `WATCH wallet:elon`.
 
 > All the commands in a transaction are serialized and executed sequentially. A request sent by another client will never be served in the middle of the execution of a Redis Transaction. This guarantees that the commands are executed as a single isolated operation. (source: [redis.io](https://redis.io/docs/interact/transactions/))
 
-Here’s how we can apply `[JSON.NUMINCRBY](https://redis.io/commands/json.numincrby/)` and remove redundant code:
+Here’s how we can apply [JSON.NUMINCRBY](https://redis.io/commands/json.numincrby/) and remove redundant code:
 
 TODO: Optimised example
 
@@ -212,28 +212,28 @@ Here are few more commands so you can get a better idea about Redis.
 
 ```
 > TTL x
-(integer) 10 // **_10 seconds left to expire_**
+(integer) 10 // 10 seconds left to expire
 ```
 
 **PERSIST (Remove the timeout from key)**
 
 ```
 > PERSIST x
-(integer) 1 **_// key won't expire_**
+(integer) 1 // key won't expire
 ```
 
 **RENAME (Rename the current existing key)**
 
 ```
 > RENAME x y
-OK // **_renamed the key 'x' as 'y'_**
+OK // renamed the key 'x' as 'y'
 ```
 
 **FLUSHALL (Delete all keys saved so far)**
 
 ```
 > flushall
-OK // **_all keys are deleted_**
+OK // all keys are deleted
 ```
 
 ## Summary
