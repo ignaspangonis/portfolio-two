@@ -4,7 +4,7 @@ import { allPages } from 'contentlayer/generated'
 
 import { Mdx } from '@/components/MdxComponents'
 
-interface PageProps {
+type PageProps = {
   params: {
     slug: string[]
   }

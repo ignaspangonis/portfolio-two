@@ -5,7 +5,7 @@ const components = {
   Image,
 }
 
-interface MdxProps {
+type MdxProps = {
   code: string
 }
 

@@ -4,7 +4,7 @@ import { allPosts } from 'contentlayer/generated'
 import { Metadata } from 'next'
 import { Mdx } from '@/components/MdxComponents'
 
-interface PostProps {
+type PostProps = {
   params: {
     slug: string[]
   }
