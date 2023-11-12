@@ -2,13 +2,17 @@
 
 import { useTheme } from 'next-themes'
 
-export function ThemeToggle() {
+type Props = {
+  className?: string
+}
+
+export function ThemeToggle({ className }: Props) {
   const { setTheme, theme } = useTheme()
 
   return (
     <button
       onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-      className="border rounded-md w-8 h-8 flex items-center justify-center"
+      className={`border rounded-md w-8 h-8 flex items-center justify-center ${className}`}
     >
       <span className="sr-only">Toggle mode</span>
       {theme !== 'dark' ? (

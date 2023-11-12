@@ -8,8 +8,30 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'Ignas Pangonis',
-  description: 'I build great web experiences.',
+  title: {
+    default: 'Ignas Pangonis',
+    template: '%s | Ignas Pangonis',
+  },
+  description: 'Developer and music producer.',
+  openGraph: {
+    title: 'Lee Robinson',
+    description: 'Developer, writer, and creator.',
+    url: 'https://leerob.io',
+    siteName: 'Lee Robinson',
+    locale: 'en_US',
+    type: 'website',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
 }
 
 type RootLayoutProps = {
@@ -27,14 +49,14 @@ export default function RootLayout({ children }: RootLayoutProps) {
           <div className="max-w-2xl mx-auto py-10 px-4">
             <header>
               <div className="flex items-center justify-between">
-                <ThemeToggle />
-                <nav className="ml-auto text-sm font-medium space-x-6">
+                <nav className="text-sm font-medium space-x-6">
                   <Link href="/">Home</Link>
                   <Link href="/about">About</Link>
                 </nav>
+                <ThemeToggle className="ml-auto" />
               </div>
             </header>
-            <main className="pt-8">{children}</main>
+            <main className="pt-12">{children}</main>
           </div>
           <Analytics />
         </ThemeProvider>
