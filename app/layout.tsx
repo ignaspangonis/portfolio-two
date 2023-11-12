@@ -2,7 +2,7 @@ import Link from 'next/link'
 import './globals.css'
 import { Inter } from 'next/font/google'
 import { ThemeProvider } from '@/components/ThemeProvider'
-import { Analytics } from '@/components/TheAnalytics'
+import { Analytics } from '@/components/Analytics'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
 const inter = Inter({ subsets: ['latin'] })
